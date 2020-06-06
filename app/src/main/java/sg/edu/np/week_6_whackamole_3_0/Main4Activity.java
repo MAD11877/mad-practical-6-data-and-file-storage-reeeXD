@@ -118,7 +118,6 @@ public class Main4Activity extends AppCompatActivity {
 
         Bundle extras = getIntent().getExtras();
         username = extras.getString("Username");
-        Log.v("fuck", username);
         levelNo = extras.getInt("LevelNo");
         handler = new MyDBHandler(this);
 
