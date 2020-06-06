@@ -1,10 +1,13 @@
 package sg.edu.np.week_6_whackamole_3_0;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.os.Handler;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -13,6 +16,8 @@ import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.Random;
+
+import static java.lang.String.format;
 
 public class Main4Activity extends AppCompatActivity {
 
@@ -32,12 +37,50 @@ public class Main4Activity extends AppCompatActivity {
             e. Each location of the mole is randomised.
         4. There is an option return to the login page.
      */
+    private TextView scoretext;
+    private Button setButton, returnButton;
+    private String username;
+    private int Score = 0;
+    private int delay, levelNo;
     private static final String FILENAME = "Main4Activity.java";
     private static final String TAG = "Whack-A-Mole3.0!";
     CountDownTimer readyTimer;
     CountDownTimer newMolePlaceTimer;
-
+    Bundle extra;
+    private MyDBHandler handler;
+    private final Handler mhandler = new Handler();
+    private final Runnable mrunnable = new Runnable() {
+        @Override
+        public void run() {
+            Log.v(TAG, "New Mole Location!");
+            assignNewMoles();
+            mhandler.postDelayed(this, delay*1000);
+        }
+    };
     private void readyTimer(){
+        readyTimer = new CountDownTimer(10000,1000) {
+            @Override
+            public void onTick(long millisUntilFinished) {
+                final Toast countDownToast = Toast.makeText(getApplicationContext(), format("Get Ready in %d seconds",millisUntilFinished/1000), Toast.LENGTH_SHORT);
+                countDownToast.show();
+                Handler timerHandler = new Handler();
+                timerHandler.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        countDownToast.cancel();
+                    }
+                }, 1000);
+            }
+
+            @Override
+            public void onFinish() {
+                readyTimer.cancel();
+                assignNewMoles();
+                placeMoleTimer();
+                Toast.makeText(getApplicationContext(), "Go!", Toast.LENGTH_SHORT).show();
+            }
+        };
+        readyTimer.start();
         /*  HINT:
             The "Get Ready" Timer.
             Log.v(TAG, "Ready CountDown!" + millisUntilFinished/ 1000);
@@ -47,8 +90,12 @@ public class Main4Activity extends AppCompatActivity {
             belongs here.
             This timer countdown from 10 seconds to 0 seconds and stops after "GO!" is shown.
          */
+
     }
     private void placeMoleTimer(){
+
+        mhandler.postDelayed(mrunnable, delay*1000);
+
         /* HINT:
            Creates new mole location each second.
            Log.v(TAG, "New Mole Location!");
@@ -57,7 +104,8 @@ public class Main4Activity extends AppCompatActivity {
            This is an infinite countdown timer.
          */
     }
-    private static final int[] BUTTON_IDS = {
+    private static final int[] BUTTON_IDS = {R.id.button_1, R.id.button_2, R.id.button_3,
+            R.id.button_4, R.id.button_5, R.id.button_6, R.id.button_7, R.id.button_8, R.id.button_9
             /* HINT:
                 Stores the 9 buttons IDs here for those who wishes to use array to create all 9 buttons.
                 You may use if you wish to change or remove to suit your codes.*/
@@ -67,6 +115,20 @@ public class Main4Activity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main4);
+
+        Bundle extras = getIntent().getExtras();
+        username = extras.getString("Username");
+        Log.v("fuck", username);
+        levelNo = extras.getInt("LevelNo");
+        handler = new MyDBHandler(this);
+
+        scoretext = findViewById(R.id.scoretext2);
+
+        delay = Math.abs(levelNo - 11);
+
+        readyTimer();
+
+
         /*Hint:
             This starts the countdown timers one at a time and prepares the user.
             This also prepares level difficulty.
@@ -78,48 +140,154 @@ public class Main4Activity extends AppCompatActivity {
 
 
         for(final int id : BUTTON_IDS){
-            /*  HINT:
-            This creates a for loop to populate all 9 buttons with listeners.
-            You may use if you wish to remove or change to suit your codes.
-            */
+            setButton = findViewById(id);
+            setButton.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    int clickedId = view.getId();
+                    Button clickedButton = findViewById(clickedId);
+                    mhandler.removeCallbacks(mrunnable);
+                    doCheck(clickedButton);
+                    setNewMole(clickedButton);
+                    placeMoleTimer();
+                }
+            });
         }
+
+        returnButton = findViewById(R.id.returnButton);
+        returnButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                AlertDialog.Builder builder = new AlertDialog.Builder(Main4Activity.this);
+                builder.setTitle("Exit Game");
+                builder.setMessage("Are you sure you wish to exit the level?");
+                builder.setCancelable(true);
+                builder.setPositiveButton("Yes", new DialogInterface.OnClickListener(){
+                    public void onClick(DialogInterface dialog, int id) {
+                        updateUserScore();
+                    }
+                });
+                builder.setNegativeButton("No", new DialogInterface.OnClickListener(){
+                    public void onClick(DialogInterface dialog, int id) { }
+                });
+                AlertDialog alert = builder.create();
+                alert.show();
+            }
+        });
     }
     @Override
     protected void onStart(){
         super.onStart();
-        readyTimer();
     }
     private void doCheck(Button checkButton)
     {
+        if (checkButton.getText() == "*"){
+            Score++;
+            Log.v(TAG, "Hit, score added!");
+        }
+        else{
+            Score--;
+            Log.v(TAG, "Missed, score deducted!");
+        }
         /* Hint:
             Checks for hit or miss
             Log.v(TAG, FILENAME + ": Hit, score added!");
             Log.v(TAG, FILENAME + ": Missed, point deducted!");
             belongs here.
         */
-
+        scoretext.setText(String.valueOf(Score));
     }
 
-    public void setNewMole()
+    public void setNewMole(Button b)
     {
-        /* Hint:
-            Clears the previous mole location and gets a new random location of the next mole location.
-            Sets the new location of the mole. Adds additional mole if the level difficulty is from 6 to 10.
-         */
-        Random ran = new Random();
-        int randomLocation = ran.nextInt(9);
-
+        if (levelNo < 6) {
+            Random ran = new Random();
+            int randomLocation = ran.nextInt(9);
+            Button new_button = findViewById(BUTTON_IDS[randomLocation]);
+            for (int id : BUTTON_IDS)
+            {
+                Button previous_button = (Button)findViewById(id);
+                if (previous_button.getText().toString() == "*"){
+                    previous_button.setText("O");
+                }
+            }
+            new_button.setText("*");
+        }
+        else {
+            if (b.getText().toString().equals("O")) {
+                assignNewMoles();
+            }
+            else{
+                Random ran = new Random();
+                int randomLocation = ran.nextInt(9);
+                b.setText("O");
+                Button selectedButton = findViewById(BUTTON_IDS[randomLocation]);
+                while (selectedButton.getText().toString().equals("*")) {
+                    randomLocation = ran.nextInt(9);
+                    selectedButton = findViewById(BUTTON_IDS[randomLocation]);
+                }
+                selectedButton.setText("*");
+            }
+        }
     }
 
     private void updateUserScore()
     {
+        readyTimer.cancel();
+        UserData user = handler.findUser(username);
+
+        mhandler.removeCallbacks(mrunnable);
+
+        int highest_score = user.getScores().get(levelNo-1);
+
+        String newUsername = user.getMyUserName();
+        String newPassword = user.getMyPassword();
+        ArrayList<Integer> newLevels = user.getLevels();
+        ArrayList<Integer> newScores = user.getScores();
+
+        if (Score > highest_score) {
+            Log.v(TAG, FILENAME + ": Update User Score...");
+            newScores.set(levelNo-1, Score);
+            handler.deleteAccount(username);
+            handler.addUser(new UserData(newUsername, newPassword, newLevels, newScores));
+        }
+        Log.v(TAG, String.valueOf(handler.findUser("Create").getScores()));
+        Log.v(TAG, FILENAME + ": Redirecting to level select");
+        Intent intent = new Intent(Main4Activity.this, Main3Activity.class);
+        Bundle b = new Bundle();
+        b.putString("Username", username);
+        intent.putExtras(b);
+        startActivity(intent);
 
      /* Hint:
         This updates the user score to the database if needed. Also stops the timers.
         Log.v(TAG, FILENAME + ": Update User Score...");
       */
-        newMolePlaceTimer.cancel();
-        readyTimer.cancel();
     }
 
+    private void assignNewMoles() {
+        for (int id : BUTTON_IDS){
+            Button clearButton = findViewById(id);
+            clearButton.setText("O");
+        }
+        if (levelNo < 6){
+            Random ran = new Random();
+            int randomLocation = ran.nextInt(9);
+            Button new_button = findViewById(BUTTON_IDS[randomLocation]);
+            new_button.setText("*");
+        }
+        else {
+            Random ran = new Random();
+            int randomLocation = ran.nextInt(9);
+            int randomLocation2 = ran.nextInt(9);
+            Button new_button = findViewById(BUTTON_IDS[randomLocation]);
+            new_button.setText("*");
+            while (randomLocation2 == randomLocation) {
+                randomLocation2 = ran.nextInt(9);
+            }
+            Button sec_button = findViewById(BUTTON_IDS[randomLocation2]);
+            sec_button.setText("*");
+        }
+
+    }
 }
